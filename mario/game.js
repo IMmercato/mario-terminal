@@ -4,6 +4,7 @@ $(function () {
     let marioPosition = 0;
     let gameInterval;
     let gameWidth = 50;
+    let coins = 0;
 
     const SPRITE_MARIO = [
         '[[b;red;] M ]',
@@ -12,49 +13,64 @@ $(function () {
         '[[b;black;]||]',
     ];
 
-    const GROUND = '[[b;green;]================================================================================]';
-    const SKY = '[[b;skyblue;]                                                                                ]';
-    const BRICK = '[[b;brown;][ ]';
-    const COIN = '[[b;yellow;]o';
+    function createLine(char, length) {
+        return char.repeat(length)
+    }
 
     function renderGame(t) { 
-        t.echo('\n'.repeat(2));
+        t.clear();
+
+        t.echo('[[b;cyan;black]' + createLine('=', gameWidth) + ']');
+        t.echo('[[b;white;black]SUPER MARIO TERMINAL GAME]');
+        t.echo('[[b;cyan;black]' + createLine('=', gameWidth) + ']');
+        t.echo('')
 
         for (let i = 0; i<3; i++) {
-            t.echo(SKY.substring(0, gameWidth * 2));
+            t.echo('[[b;#87CEEB;#87CEEB]' + createLine(' ', gameWidth) + ']');
         }
 
-        const marioX = Math.max(5, Math.min(marioPosition, gameWidth - 5));
+        const marioX = Math.floor(marioPosition);
 
-        for (let row = 0; row<4; row++) {
-            let line = SKY.substring(0, marioX *2);
+        for (let row = 0; row < 4; row++) {
+            let line = '';
+            let marioRendered = false;
 
-            if (row < SPRITE_MARIO.length) {
-                line += SPRITE_MARIO[row];
-            } else {
-                line += SKY.substring(0, 4);
-            }
+            for (let col = 0; col < gameWidth; col++) {
+                let char = ' ';
 
-            if (row == 2) {
-                if (marioPosition > 15 && marioPosition < 20) {
-                    line += BRICK + BRICK + BRICK;
+                if (col === marioX && row < SPRITE_MARIO.length && !marioRendered) {
+                    line += SPRITE_MARIO[row];
+                    marioRendered = true;
+                    col += 2;
+                    continue;
                 }
-                if (marioPosition > 25 && marioPosition < 30) {
-                    line += COIN + COIN;
+                else if (row === 2 && col >= 20 && col < 26) {
+                    if ((col -20) % 3 === 0 || (col -20) % 3 === 1) {
+                        char = '[[;#8B4513;]#]';
+                    }
                 }
+                else if (row === 2 && col >= 35 && col < 40) {
+                    if ((col -35) % 2 === 0) {
+                        char = '[[;yellow;]O]';
+                    }
+                }
+                else if (row === 3 && col >= 45 && col < 52) {
+                    char = '[[;brown;]=]';
+                }
+                line += char;
             }
-
-            line += SKY.substring(line.length, gameWidth * 2);
-            t.echo(line);
+            t.echo('[[;#87CEEB;#87CEEB]' + line + ']')
         }
 
         for (let i = 0; i <2; i++) {
-            t.echo(SKY.substring(0, gameWidth * 2));
+            t.echo('[[b;#87CEEB;#87CEEB]' + createLine(' ', gameWidth) + ']');
         }
 
-        t.echo(GROUND.substring(0, gameWidth * 2));
+        t.echo('[[b;green;green]' + createLine('=', gameWidth) + ']');
 
-        t.echo(`Position: ${marioPosition} | Controls: ← → to move, q to quit`);
+        t.echo('');
+        t.echo(`[[b;yellow;black]Coins: ${coins} | Position: ${Math.floor(marioPosition)}]`);
+        t.echo(`[[b;white;black]Controls: ← → to move | Q to quit]`);
     }
 
     function handleGameInput(key) {
