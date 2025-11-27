@@ -57,12 +57,58 @@ $(function () {
         t.echo(`Position: ${marioPosition} | Controls: ← → to move, q to quit`);
     }
 
-    function handleGameInput(command) {
+    function handleGameInput(key) {
+        if(!isGameRunning) {
+            return;
+        }
 
+        switch (key) {
+            case 'left':
+            case 'ArrowLeft':
+                marioPosition = Math.max(0, marioPosition - 2);
+                break;
+            case 'right':
+            case 'ArrowRight':
+                marioPosition = Math.min(gameWidth - 4, marioPosition + 2);
+                break;
+            case 'q':
+            case 'Q':
+            case 'quit':
+                quitGame();
+                break;
+        }
     }
 
-    function quitGame() {
+    function startGameLoop(t) {
+        if (gameInterval) {
+            clearInterval(gameInterval);
+        }
 
+        gameInterval = setInterval(() => {
+            if (isGameRunning) {
+                renderGame(t);
+            }
+        }, 100)
+    }
+
+    function setupGameInput() {
+        $(document).on('keydoen', function(e) {
+            if (!isGameRunning) return;
+
+            if (['ArrowLeft', 'ArrowRight', 'q', 'Q'].includes(e.key)) {
+                e.preventDefault();
+                handleGameInput(e.key);
+            }
+        })
+    } 
+
+    function quitGame() {
+        isGameRunning = false;
+        if (gameInterval) {
+            clearInterval(gameInterval);
+            gameInterval = null;
+        }
+        term.echo("[[b;yellow;]Game over!]");
     }
 
     term = $('#terminal').terminal({
@@ -92,7 +138,10 @@ $(function () {
             this.echo("[[b;green;]|------------------------------------------------|]");
             marioPosition = 5;
             isGameRunning = true;
-            renderGame(t);
+            t.set_prompt('GAME> ')
+            startGameLoop(t);
+            setupGameInput();
+            t.echo("[[b;green;]Game started!]")
         }, 
 
         quit: function () {
