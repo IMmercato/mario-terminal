@@ -5,12 +5,13 @@ $(function () {
     let gameInterval;
     let gameWidth = 50;
     let coins = 0;
+    let inputSetup = false;
 
     const SPRITE_MARIO = [
-        '[[b;red;] M ]',
-        '[[b;white;]()]',
-        '[[b;blue;]HH]',
-        '[[b;black;]||]',
+        '[[b;white;red] M ]',
+        '[[b;brown;#E8BEAC]( )]',
+        '[[b;white;blue]HH]',
+        '[[b;black;blue]||]',
     ];
 
     function createLine(char, length) {
@@ -79,13 +80,13 @@ $(function () {
         }
 
         switch (key) {
-            case 'left':
             case 'ArrowLeft':
                 marioPosition = Math.max(0, marioPosition - 2);
+                checkCoinCollection();
                 break;
-            case 'right':
             case 'ArrowRight':
-                marioPosition = Math.min(gameWidth - 4, marioPosition + 2);
+                marioPosition = Math.min(gameWidth - 5, marioPosition + 2);
+                checkCoinCollection();
                 break;
             case 'q':
             case 'Q':
@@ -95,10 +96,21 @@ $(function () {
         }
     }
 
+    function checkCoinCollection() {
+        const marioX = Math.floor(marioPosition);
+        if ((marioX >= 33 && marioX <= 36) || (marioX >= 35 && marioX <= 38) || (marioX >= 37 && marioX <= 40)) {
+            if (marioX === 35 || marioX === 37 || marioX === 39) {
+                coins++;
+            }
+        }
+    }
+
     function startGameLoop(t) {
         if (gameInterval) {
             clearInterval(gameInterval);
         }
+
+        renderGame(t);
 
         gameInterval = setInterval(() => {
             if (isGameRunning) {
@@ -108,10 +120,13 @@ $(function () {
     }
 
     function setupGameInput() {
-        $(document).on('keydoen', function(e) {
+        if (inputSetup) return;
+        inputSetup = true;
+
+        $(document).on('keydown', function(e) {
             if (!isGameRunning) return;
 
-            if (['ArrowLeft', 'ArrowRight', 'q', 'Q'].includes(e.key)) {
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown','q', 'Q'].includes(e.key)) {
                 e.preventDefault();
                 handleGameInput(e.key);
             }
@@ -124,6 +139,7 @@ $(function () {
             clearInterval(gameInterval);
             gameInterval = null;
         }
+        term.enable();
         term.echo("[[b;yellow;]Game over!]");
     }
 
@@ -147,17 +163,24 @@ $(function () {
         startgame: function () {
             let t = this;
             if (isGameRunning) {
-                t.echo("[[b;yellow;]Game is already running]");
+                t.echo("[[b;yellow;black]Game is already running]");
                 return;
             }
-            this.echo("[[b;green;]Starting Super Mario Terminal...]");
-            this.echo("[[b;green;]|------------------------------------------------|]");
+
+            this.echo();
+            this.echo("[[b;green;black]Starting Super Mario Terminal...]");
+            this.echo("[[b;green;black]|------------------------------------------------|]");
+            
             marioPosition = 5;
+            coins = 0;
             isGameRunning = true;
-            t.set_prompt('GAME> ')
-            startGameLoop(t);
-            setupGameInput();
-            t.echo("[[b;green;]Game started!]")
+            
+            setTimeout(() => {
+                t.disable();
+                //t.set_prompt('[[b;red;black]Game>] ');
+                setupGameInput();
+                startGameLoop(t);
+            }, 500);
         }, 
 
         quit: function () {
