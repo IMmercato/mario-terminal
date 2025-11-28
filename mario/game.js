@@ -2,10 +2,15 @@ $(function () {
     let term;
     let isGameRunning = false;
     let marioPosition = 0;
+    let marioY = 0;
+    let marioVelocityY = 0;
+    let isJumping = false;
     let gameInterval;
     let gameWidth = 50;
+    let viewportWidth = 50;
     let coins = 0;
     let inputSetup = false;
+    let cameraX = 0;
 
     const SPRITE_MARIO = [
         '[[b;white;red] M ]',
@@ -14,8 +19,40 @@ $(function () {
         '[[b;black;blue]||]',
     ];
 
+    const GRAVITY = 0.5;
+    const JUMP_STRENGTH = -3;
+    const MAX_JUMP_HEIGHT = 2;
+
     function createLine(char, length) {
         return char.repeat(length)
+    }
+
+    function generateObstacles(worldX) {
+        const obstacles = [];
+
+        if (worldX % 20 === 0 && worldX > 10) {
+            obstacles.push({ type: 'platform', x: worldX, width: 6 });
+        }
+
+        if (worldX % 15 === 0 && worldX > 5) {
+            for (let i = 0; i < 3; i++) {
+                obstacles.push({ type: 'coin', x: worldX + i * 2 });
+            }
+        }
+
+        if (worldX % 23 === 0 && worldX > 0) {
+            obstacles.push({ type: 'block', x: worldX, width: 2 });
+        }
+
+        return obstacles;
+    }
+
+    function displayObstacles() {
+        const obstacles = [];
+        for (let x = Math.floor(cameraX); x < cameraX + viewportWidth + 10; x++) {
+            obstacles.push(...generateObstacles(x));
+        }
+        return obstacles;
     }
 
     function renderGame(t) { 
@@ -30,33 +67,51 @@ $(function () {
             t.echo('[[b;#87CEEB;#87CEEB]' + createLine(' ', gameWidth) + ']');
         }
 
-        const marioX = Math.floor(marioPosition);
+        const marioScreenX = Math.floor(marioPosition - cameraX);
+        const marioGroundRow = 3;
+        const marioTopRow = marioPosition - 3 - Math.floor(marioY);
 
-        for (let row = 0; row < 4; row++) {
+        const obstacles = displayObstacles();
+
+        for (let row = 0; row < 5; row++) {
             let line = '';
-            let marioRendered = false;
 
-            for (let col = 0; col < gameWidth; col++) {
+            for (let col = 0; col < viewportWidth; col++) {
+                const worldX = Math.floor(cameraX + col);
                 let char = ' ';
+                let rendered = false;
 
-                if (col === marioX && row < SPRITE_MARIO.length && !marioRendered) {
-                    line += SPRITE_MARIO[row];
-                    marioRendered = true;
-                    col += 2;
-                    continue;
-                }
-                else if (row === 2 && col >= 20 && col < 26) {
-                    if ((col -20) % 3 === 0 || (col -20) % 3 === 1) {
-                        char = '[[;#8B4513;]#]';
+                if (col >= marioScreenX && col < marioScreenX + 3 && row >= marioTopRow && row < marioTopRow + 4) {
+                    const spriteRow = row - marioTopRow;
+                    if (spriteRow >= 0 && spriteRow < SPRITE_MARIO.length) {
+                        line += SPRITE_MARIO[spriteRow];
+                        col += 2;
+                        rendered = true;
+                        continue;
                     }
                 }
-                else if (row === 2 && col >= 35 && col < 40) {
-                    if ((col -35) % 2 === 0) {
-                        char = '[[;yellow;]O]';
+
+                if (!rendered) {
+                    for (const obs of obstacles) {
+                        if (obs.type === 'platform' && row === 1) {
+                            if (worldX >= obs.x && worldX < obs.x + obs.width) {
+                                char = '[[;#8B4513;]#]';
+                                break;
+                            }
+                        }
+                        else if (obs.type === 'coin' && row === 1) {
+                            if (worldX === obs.x) {
+                                char = '[[;yellow;]O]';
+                                break;
+                            }
+                        }
+                        else if (obs.type === 'block' && row === 1) {
+                            if (worldX >= obs.x && worldX < obs.x + obs.width) {
+                                char = '[[;brown;]=]';
+                                break;
+                            }
+                        }
                     }
-                }
-                else if (row === 3 && col >= 45 && col < 52) {
-                    char = '[[;brown;]=]';
                 }
                 line += char;
             }
@@ -85,22 +140,53 @@ $(function () {
                 checkCoinCollection();
                 break;
             case 'ArrowRight':
-                marioPosition = Math.min(gameWidth - 5, marioPosition + 2);
+                marioPosition = marioPosition + 2;
                 checkCoinCollection();
+                break;
+            case ' ':
+            case 'Space':
+                if (!isJumping) {
+                    marioVelocityY = JUMP_STRENGTH;
+                    isJumping = true;
+                }
                 break;
             case 'q':
             case 'Q':
-            case 'quit':
                 quitGame();
                 break;
         }
     }
 
+    function updatePhysics() {
+        if (marioY > 0 || marioVelocityY < 0) {
+            marioVelocityY += GRAVITY;
+            marioY += marioVelocityY;
+
+            if (marioY < -MAX_JUMP_HEIGHT) {
+                marioY = -MAX_JUMP_HEIGHT;
+                marioVelocityY = 0;
+            }
+
+            if (marioY >= 0) {
+                marioY = 0;
+                marioVelocityY = 0;
+                isJumping = false;
+            }
+        }
+
+        const targetCameraX = Math.max(0, marioPosition - 15);
+        cameraX = targetCameraX;
+    }
+
     function checkCoinCollection() {
-        const marioX = Math.floor(marioPosition);
-        if ((marioX >= 33 && marioX <= 36) || (marioX >= 35 && marioX <= 38) || (marioX >= 37 && marioX <= 40)) {
-            if (marioX === 35 || marioX === 37 || marioX === 39) {
-                coins++;
+        const obstacles = displayObstacles();
+        for (const obs of obstacles) {
+            if (obs.type === 'coin') {
+                const marioX = Math.floor(marioPosition);
+                if (marioX >= obs.x -1 && marioX <= obs.x +1) {
+                    coins++;
+                    obs.collected = true;
+                }
             }
         }
     }
@@ -114,6 +200,7 @@ $(function () {
 
         gameInterval = setInterval(() => {
             if (isGameRunning) {
+                updatePhysics();
                 renderGame(t);
             }
         }, 100)
@@ -126,7 +213,7 @@ $(function () {
         $(document).on('keydown', function(e) {
             if (!isGameRunning) return;
 
-            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown','q', 'Q'].includes(e.key)) {
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'q', 'Q'].includes(e.key)) {
                 e.preventDefault();
                 handleGameInput(e.key);
             }
@@ -140,7 +227,9 @@ $(function () {
             gameInterval = null;
         }
         term.enable();
-        term.echo("[[b;yellow;]Game over!]");
+        term.set_prompt('mario> ');
+        term.echo("[[b;yellow;]Game over! Final score: " + coins + " coins]");
+        term.echo("[[b;white;]Type 'startgame' to play again or 'help' for commands]");
     }
 
     term = $('#terminal').terminal({
@@ -148,14 +237,14 @@ $(function () {
             this.echo("[[b;red;]SUPER MARIO TERMINAL]");
             this.echo("Welcome! Type [[b;yellow;]startgame] to begin.");
             this.echo("\n[[b;white;]Controls:]");
-            this.echo("  [[b;white;]left/right] - Move");
-            this.echo("  [[b;white;]up/jump] - Jump");
-            this.echo("  [[b;white;]quit] - Exit game");
+            this.echo("  [[b;white;]left/right arrows] - Move");
+            this.echo("  [[b;white;]Q] - Quit game");
         },
 
         help: function () {
             this.echo("[[b;green;]Available commands:]");
             this.echo("  [[b;white;]start] - Begin the game");
+            this.echo("  [[b;white;]startgame] - Begin the game");
             this.echo("  [[b;white;]help] - Show this help");
             this.echo("  [[b;white;]quit] - Exit the game");
         },
@@ -169,15 +258,18 @@ $(function () {
 
             this.echo();
             this.echo("[[b;green;black]Starting Super Mario Terminal...]");
-            this.echo("[[b;green;black]|------------------------------------------------|]");
+            this.echo("[[b;green;black]Press Q to quit the game]");
             
             marioPosition = 5;
+            marioY = 0;
+            marioVelocityY = 0;
+            isJumping = false;
+            cameraX = 0;
             coins = 0;
             isGameRunning = true;
             
             setTimeout(() => {
                 t.disable();
-                //t.set_prompt('[[b;red;black]Game>] ');
                 setupGameInput();
                 startGameLoop(t);
             }, 500);
