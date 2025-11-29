@@ -22,7 +22,8 @@ $(function () {
 
     const GRAVITY = 0.5;
     const JUMP_STRENGTH = -3;
-    const MAX_JUMP_HEIGHT = 3;
+    const MAX_JUMP_HEIGHT = 4;
+    const HORIZONTAL_JUMP_DISTANCE = 2;
 
     function createLine(char, length) {
         return char.repeat(length)
@@ -64,14 +65,14 @@ $(function () {
         t.echo('[[b;cyan;black]' + createLine('=', gameWidth) + ']');
         t.echo('')
 
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 2; i++) {
             t.echo('[[b;#87CEEB;#87CEEB]' + createLine(' ', gameWidth) + ']');
         }
 
         const marioScreenX = Math.floor(marioPosition - cameraX);
         const obstacles = displayObstacles();
 
-        for (let row = 0; row < 5; row++) {
+        for (let row = 0; row < 8; row++) {
             let line = '';
 
             for (let col = 0; col < viewportWidth; col++) {
@@ -79,12 +80,12 @@ $(function () {
                 let char = ' ';
                 let rendered = false;
 
-                const marioGroundRow = 3;
-                const marioCurrentRow = marioGroundRow + Math.floor(marioY);
+                const marioGroundRow = 7;
+                const marioBottomRow = marioGroundRow + Math.floor(marioY);
+                const marioTopRow = marioBottomRow - 3;
 
                 if (col >= marioScreenX && col < marioScreenX + 3) {
-                    const marioTopRow = marioCurrentRow - 3;
-                    if (row >= marioTopRow && row <= marioCurrentRow) {
+                    if (row >= marioTopRow && row <= marioBottomRow) {
                         const spriteRow = row - marioTopRow;
                         if (spriteRow >= 0 && spriteRow < SPRITE_MARIO.length) {
                             line += SPRITE_MARIO[spriteRow];
@@ -97,21 +98,21 @@ $(function () {
 
                 if (!rendered) {
                     for (const obs of obstacles) {
-                        if (obs.type === 'platform' && row === 1) {
-                            if (worldX >= obs.x && worldX < obs.x + obs.width) {
+                        if (obs.type === 'platform') {
+                            if ((row === 4 || row === 5) && worldX >= obs.x && worldX < obs.x + obs.width) {
                                 char = '[[;#8B4513;]#]';
                                 break;
                             }
                         }
-                        else if (obs.type === 'coin' && row === 1) {
+                        else if (obs.type === 'coin' && row === 4) {
                             const coinKey = `${obs.x}`;
                             if (worldX === obs.x && !collectedCoins.has(coinKey)) {
                                 char = '[[;yellow;]O]';
                                 break;
                             }
                         }
-                        else if (obs.type === 'block' && row === 1) {
-                            if (worldX >= obs.x && worldX < obs.x + obs.width) {
+                        else if (obs.type === 'block') {
+                            if ((row === 5 || row === 6) && worldX >= obs.x && worldX < obs.x + obs.width) {
                                 char = '[[;brown;]=]';
                                 break;
                             }
@@ -122,7 +123,6 @@ $(function () {
             }
             t.echo('[[;#87CEEB;#87CEEB]' + line + ']')
         }
-        
 
         t.echo('[[b;green;green]' + createLine('=', gameWidth) + ']');
 
@@ -160,6 +160,18 @@ $(function () {
     }
 
     function updatePhysics() {
+        if (isJumping && marioY < 0) {
+            const keys = window.pressedKeys || {};
+            if (keys['ArrowLeft']) {
+                const newPos = Math.max(0, marioPosition - HORIZONTAL_JUMP_DISTANCE);
+                marioPosition = newPos;
+            }
+            if (keys['ArrowRight']) {
+                const newPos = Math.max(0, marioPosition + HORIZONTAL_JUMP_DISTANCE);
+                marioPosition = newPos;
+            }
+        }
+
         if (marioY < 0 || marioVelocityY !== 0) {
             marioVelocityY += GRAVITY;
             marioY += marioVelocityY;
@@ -186,7 +198,7 @@ $(function () {
         for (const obs of obstacles) {
             if (obs.type === 'coin') {
                 const coinKey = `${obs.x}`;
-                if (!collectedCoins.has(coinKey) && marioX >= obs.x - 1 && marioX <= obs.x +1) {
+                if (!collectedCoins.has(coinKey) && marioX >= obs.x - 1 && marioX <= obs.x + 1) {
                     coins++;
                     collectedCoins.add(coinKey);
                 }
@@ -213,14 +225,23 @@ $(function () {
         if (inputSetup) return;
         inputSetup = true;
 
+        window.pressedKeys = {};
+
         $(document).on('keydown', function (e) {
             if (!isGameRunning) return;
 
             if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'q', 'Q'].includes(e.key)) {
                 e.preventDefault();
+                window.pressedKeys[e.key] = true;
                 handleGameInput(e.key);
             }
-        })
+        });
+
+        $(document).on('keyup', function(e) {
+            if (window.pressedKeys) {
+                window.pressedKeys[e.key] = false;
+            }
+        });
     }
 
     function quitGame() {
