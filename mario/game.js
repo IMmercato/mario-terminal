@@ -9,7 +9,7 @@ $(function () {
 
     const pcGroup = new THREE.Group();
 
-    const screenGeometry = new THREE.BoxGeometry(8, 6, 0.5);
+    const screenGeometry = new THREE.BoxGeometry(8, 6, 0.3);
     const screenMaterial = new THREE.MeshPhongMaterial({
         color: 0x000000,
         specular: 0x333333,
@@ -21,7 +21,7 @@ $(function () {
 
     const bezelGeometry = new THREE.BoxGeometry(9.5, 7.5, 1.0);
     const bezelMaterial = new THREE.MeshPhongMaterial({
-        color: 0xcccccc,
+        color: 0xCCCCCC,
         specular: 0xAAAAAA,
         shininess: 30
     });
@@ -31,18 +31,18 @@ $(function () {
     const standBaseGeometry = new THREE.CylinderGeometry(2.5, 3, 0.8, 8);
     const standBaseMaterial = new THREE.MeshPhongMaterial({ color: 0x777777 });
     const standBase = new THREE.Mesh(standBaseGeometry, standBaseMaterial);
-    standBase.position.set(0, 0.4, 0);
+    standBase.position.set(0, -3, -1);
 
     const standNeckGeometry = new THREE.CylinderGeometry(0.8, 1.2, 2.5, 8);
     const standNeckMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
     const standNeck = new THREE.Mesh(standNeckGeometry, standNeckMaterial);
-    standNeck.position.set(0, 0.4, 0);
+    standNeck.position.set(0, -1.5, -1);
 
     const keyboardBaseGeometry = new THREE.BoxGeometry(12, 0.6, 5);
-    const keyboardBaseMaterial = new THREE.MeshPhongMaterial({
+    const keyboardBaseMaterial = new THREE.MeshPhongMaterial({ 
         color: 0x333333,
         specular: 0x444444,
-        shininess: 20,
+        shininess: 20
     });
     const keyboardBase = new THREE.Mesh(keyboardBaseGeometry, keyboardBaseMaterial);
     keyboardBase.position.set(0, -2.8, 4);
@@ -52,7 +52,7 @@ $(function () {
         color: 0x111111,
         specular: 0x222222,
         shininess: 50
-    })
+    });
 
     for (let row = 0; row < 4; row++) {
         for (let col = 0; col < 12; col++) {
@@ -72,13 +72,13 @@ $(function () {
     pcGroup.add(spaceBar);
 
     const mouseBaseGeometry = new THREE.BoxGeometry(1.5, 0.8, 2.5);
-    const mouseBaseMaterial = new THREE.MeshPhongMaterial({
+    const mouseBaseMaterial = new THREE.MeshPhongMaterial({ 
         color: 0x444444,
         specular: 0x555555,
         shininess: 30
     });
     const mouseBase = new THREE.Mesh(mouseBaseGeometry, mouseBaseMaterial);
-    mouseBase.position.set(8, -2.2, 4.8);
+    mouseBase.position.set(8, -2.6, 5);
     mouseBase.rotation.y = -0.3;
 
     const mouseBallGeometry = new THREE.SphereGeometry(0.5, 16, 16);
@@ -106,18 +106,18 @@ $(function () {
     floppy.position.set(-10, -2, 3.1);
     pcGroup.add(floppy);
 
-    const powerButtonGeomerty = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
+    const powerButtonGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
     const powerButtonMaterial = new THREE.MeshPhongMaterial({
         color: 0xFF0000,
         emissive: 0x220000
     });
-    const powerButton = new THREE.Mesh(powerButtonGeomerty, powerButtonMaterial);
+    const powerButton = new THREE.Mesh(powerButtonGeometry, powerButtonMaterial);
     powerButton.position.set(-10, 2, 3.1);
     pcGroup.add(powerButton);
 
     const cableGeometry = new THREE.CylinderGeometry(0.1, 0.1, 10, 8);
     const cableMaterial = new THREE.MeshPhongMaterial({ color: 0x111111 });
-
+    
     const monitorCable = new THREE.Mesh(cableGeometry, cableMaterial);
     monitorCable.position.set(0, -1, 0);
     monitorCable.rotation.x = Math.PI / 2;
@@ -133,7 +133,7 @@ $(function () {
     const ambientLight = new THREE.AmbientLight(0x404040, 1.2);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
     directionalLight.position.set(15, 20, 10);
     scene.add(directionalLight);
 
@@ -165,7 +165,7 @@ $(function () {
             terminalElement.style.opacity = '0.7';
         }
     });
-
+    
     renderer.domElement.addEventListener('mouseout', () => {
         if (terminalElement) {
             terminalElement.style.opacity = '1';
@@ -193,8 +193,8 @@ $(function () {
         if (!mouseOver) {
             pcGroup.rotation.y += rotationSpeed;
         }
-
-        pcGroup.rotation.y += Math.sin(Date.now() * 0.001) * 0.05;
+        
+        pcGroup.position.y = Math.sin(Date.now() * 0.001) * 0.05;
         renderer.render(scene, camera);
     }
     animate();
@@ -203,7 +203,7 @@ $(function () {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(this.window.innerWidth, this.window.innerHeight);
-    })
+    });
 
     let term;
     let isGameRunning = false;
