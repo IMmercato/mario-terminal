@@ -13,6 +13,8 @@ $(function () {
     let cameraX = 0;
     let collectedCoins = new Set();
     let groundLevel = 0;
+    let enemies = [];
+    let enemyUpdateInterval = 20;
 
     const SPRITE_MARIO = [
         '[[b;white;red] M ]',
@@ -21,11 +23,17 @@ $(function () {
         '[[b;black;blue]||]',
     ];
 
+    const SPRITE_GOOMBA = [
+        '[[b;black;brown]oo]',
+        '[[b;black;brown]--]',
+    ]
+
     const GRAVITY = 0.5;
-    const JUMP_STRENGTH = -3;
+    const JUMP_STRENGTH = -4;
     const MAX_JUMP_HEIGHT = 4;
-    const HORIZONTAL_JUMP_DISTANCE = 2;
+    const HORIZONTAL_JUMP_DISTANCE = 3;
     const MARIO_WIDTH = 3;
+    const GOOMBA_WIDTH = 2;
 
     function createLine(char, length) {
         return char.repeat(length)
@@ -70,6 +78,11 @@ $(function () {
         // Pipe
         if (worldX % 45 === 15 && worldX > 50) {
             obstacles.push({ type: 'pipe', x: worldX, width: 2, height: 3 });
+        }
+
+        // Goomba
+        if (worldX % 50 === 25 && worldX > 50) {
+            enemies.push({ type: 'goomba', x: worldX, y: 7, direction: -1 });
         }
 
         return obstacles;
@@ -156,7 +169,7 @@ $(function () {
         t.echo('[[b;cyan;black]' + createLine('=', gameWidth) + ']');
         t.echo('[[b;white;black]SUPER MARIO TERMINAL GAME]');
         t.echo('[[b;cyan;black]' + createLine('=', gameWidth) + ']');
-        t.echo('')
+        t.echo('');
 
         for (let i = 0; i < 2; i++) {
             t.echo('[[b;#87CEEB;#87CEEB]' + createLine(' ', gameWidth) + ']');
@@ -177,7 +190,7 @@ $(function () {
                 const marioBottomRow = marioGroundRow + Math.floor(marioY);
                 const marioTopRow = marioBottomRow - 3;
 
-                if (col >= marioScreenX && col < marioScreenX + 3) {
+                if (col >= marioScreenX && col < marioScreenX + MARIO_WIDTH) {
                     if (row >= marioTopRow && row <= marioBottomRow) {
                         const spriteRow = row - marioTopRow;
                         if (spriteRow >= 0 && spriteRow < SPRITE_MARIO.length) {
@@ -188,6 +201,27 @@ $(function () {
                         }
                     }
                 }
+
+                if (!rendered) {
+                    for (const enemy of enemies) {
+                        const enemyScreenX = Math.floor(enemy.x - cameraX);
+                        if (col >= enemyScreenX && col < enemyScreenX + GOOMBA_WIDTH) {
+                            const enemyTopRow = 7 - SPRITE_GOOMBA.length;
+
+                            if (row >= enemyTopRow && row <= 7) {
+                                const spriteRow = row - enemyTopRow;
+                                if (spriteRow >= 0 && spriteRow < SPRITE_GOOMBA.length) {
+                                    line += SPRITE_GOOMBA[spriteRow];
+                                    col += GOOMBA_WIDTH -1;
+                                    rendered = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (rendered) continue;
 
                 if (!rendered) {
                     for (const obs of obstacles) {
@@ -227,7 +261,7 @@ $(function () {
                 }
                 line += char;
             }
-            t.echo('[[;#87CEEB;#87CEEB]' + line + ']')
+            t.echo('[[;#87CEEB;#87CEEB]' + line + ']');
         }
 
         t.echo('[[b;green;green]' + createLine('=', gameWidth) + ']');
@@ -237,6 +271,36 @@ $(function () {
         t.echo(`[[b;white;black]Controls: ← → to move | Q to quit]`);
     }
 
+    function updateEnemies() {
+        enemies = enemies.filter(enemy => enemy.x >= cameraX - GOOMBA_WIDTH);
+
+        const marioX = Math.floor(marioPosition);
+        const marioBottom = 7 + Math.floor(marioY);
+
+        for (const enemy of enemies) {
+            enemy.x += 0.5 * enemy.direction;
+
+            const enemyLeft = Math.floor(enemy.x);
+            const enemyRight = enemyLeft + GOOMBA_WIDTH - 1;
+            const enemyTop = 7 - SPRITE_GOOMBA.length;
+
+            const horizontalOverlap = marioX <= enemyRight && (marioY + MARIO_WIDTH -1) >= enemyLeft;
+            const verticalOverlap = marioBottom >= enemyTop;
+
+            if (horizontalOverlap && verticalOverlap) {
+                if (marioBottom <= enemyTop +1) {
+                    enemies = enemies.filter(e => e !== enemy);
+                    marioVelocityY = JUMP_STRENGTH * 0.5;
+                    term.echo("[[b;red;]Stomp!]");
+                } else {
+                    term.echo("[[b;red;]Ouch! You hit a Goomba! Game Over.]");
+                    quitGame();
+                    return;
+                }
+            }
+        }
+    }
+
     function handleGameInput(key) {
         if (!isGameRunning) {
             return;
@@ -244,16 +308,22 @@ $(function () {
 
         switch (key) {
             case 'ArrowLeft':
-                marioPosition = Math.max(0, marioPosition - 2);
+                const newPosLeft = Math.max(0, marioPosition - 2);
+                if (!checkHorizontalCollision(newPosLeft)) {
+                    marioPosition = newPosLeft;
+                }
                 checkCoinCollection();
                 break;
             case 'ArrowRight':
-                marioPosition = marioPosition + 2;
+                const newPosRight = marioPosition + 2;
+                if (!checkHorizontalCollision(newPosRight)) {
+                    marioPosition = newPosRight;
+                }
                 checkCoinCollection();
                 break;
             case ' ':
             case 'Space':
-                if (!isJumping) {
+                if (!isJumping && marioY >= groundLevel) {
                     marioVelocityY = JUMP_STRENGTH;
                     isJumping = true;
                 }
@@ -299,16 +369,15 @@ $(function () {
             groundLevel = findGroundLevel();
 
             if (marioY >= groundLevel) {
-                marioY = groundLevel;
-                marioVelocityY = 0;
-                isJumping = false;
+                if (marioVelocityY >= 0 || isJumping) {
+                    marioY = groundLevel;
+                    marioVelocityY = 0;
+                    isJumping = false;
+                }
             }
-        } else {
-            groundLevel = findGroundLevel();
-            if (marioY > groundLevel) {
-                isJumping = true;
-                marioVelocityY = 0;
-            }
+        } else if (marioY > groundLevel && !isJumping) {
+            isJumping = true;
+            marioVelocityY = 0;
         }
 
         const targetCameraX = Math.max(0, marioPosition - 15);
@@ -341,6 +410,7 @@ $(function () {
         gameInterval = setInterval(() => {
             if (isGameRunning) {
                 updatePhysics();
+                updateEnemies();
                 renderGame(t);
             }
         }, 100)
@@ -430,7 +500,7 @@ $(function () {
             if (isGameRunning) {
                 quitGame();
             } else {
-                this.echo("[[b;yellow;]No game running. Type 'startgame' to begin!]")
+                this.echo("[[b;yellow;]No game running. Type 'startgame' to begin!]");
             }
         }
     }, {
