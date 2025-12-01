@@ -6,21 +6,22 @@ $(function () {
     let marioVelocityY = 0;
     let isJumping = false;
     let gameInterval;
-    let gameWidth = 50;
-    let viewportWidth = 50;
+    let gameWidth = 100;
+    let viewportWidth = 100;
+    let gameHeight = 16;
     let coins = 0;
     let inputSetup = false;
     let cameraX = 0;
     let collectedCoins = new Set();
     let groundLevel = 0;
     let enemies = [];
-    let enemyUpdateInterval = 20;
+    let spawnedEnemies = new Set();
 
     const SPRITE_MARIO = [
         '[[b;white;red] M ]',
         '[[b;brown;#E8BEAC]( )]',
-        '[[b;white;blue]HH]',
-        '[[b;black;blue]||]',
+        '[[b;white;blue]H H]',
+        '[[b;black;blue]| |]',
     ];
 
     const SPRITE_GOOMBA = [
@@ -30,10 +31,11 @@ $(function () {
 
     const GRAVITY = 0.5;
     const JUMP_STRENGTH = -4;
-    const MAX_JUMP_HEIGHT = 4;
+    const MAX_JUMP_HEIGHT = 9;
     const HORIZONTAL_JUMP_DISTANCE = 3;
     const MARIO_WIDTH = 3;
     const GOOMBA_WIDTH = 2;
+    const GROUND_ROW = 15;
 
     function createLine(char, length) {
         return char.repeat(length)
@@ -44,21 +46,21 @@ $(function () {
         const seed = worldX;
 
         // Floating Platforms
-        if (worldX % 25 === 0 && worldX > 20) {
-            const width = 4 + (Math.abs(Math.sin(worldX * 0.1)) * 4) | 0;
+        if (worldX % 50 === 0 && worldX > 30) {
+            const width = 4 + (Math.abs(Math.sin(worldX * 0.1)) * 3) | 0;
             obstacles.push({ type: 'platform', x: worldX, width: width, y: 4 });
-        } else if (worldX % 30 === 5 && worldX > 30) {
-            obstacles.push({ type: 'platform', x: worldX, width: 5, y: 5 });
+        } else if (worldX % 60 === 20 && worldX > 50) {
+            obstacles.push({ type: 'platform', x: worldX, width: 6, y: 10 });
         }
 
         // Coin
-        if (worldX % 18 === 3 && worldX > 10) {
+        if (worldX % 35 === 5 && worldX > 15) {
             for (let i = 0; i < 4; i++) {
-                obstacles.push({ type: 'coin', x: worldX + i * 2, y: 4 });
+                obstacles.push({ type: 'coin', x: worldX + i * 3, y: 8 });
             }
-        } else if (worldX % 22 === 7 && worldX > 25) {
-            obstacles.push({ type: 'coin', x: worldX, y: 3 });
-            obstacles.push({ type: 'coin', x: worldX, y: 4 });
+        } else if (worldX % 45 === 15 && worldX > 40) {
+            obstacles.push({ type: 'coin', x: worldX, y: 6 });
+            obstacles.push({ type: 'coin', x: worldX + 3, y: 8 });
         } else if (worldX % 35 === 10 && worldX > 40) {
             obstacles.push({ type: 'coin', x: worldX, y: 5 });
             obstacles.push({ type: 'coin', x: worldX + 2, y: 4 });
@@ -66,26 +68,36 @@ $(function () {
         }
 
         // Block
-        if (worldX % 28 === 12 && worldX > 15) {
-            const width = 2 + ((worldX / 10) % 3) | 0;
-            obstacles.push({ type: 'block', x: worldX, width: width, y: 5 });
-        } else if (worldX % 40 === 20 && worldX > 35) {
-            obstacles.push({ type: 'block', x: worldX, width: 2, y: 6 });
-            obstacles.push({ type: 'block', x: worldX + 2, width: 2, y: 5 });
-            obstacles.push({ type: 'block', x: worldX + 4, width: 2, y: 4 });
+        if (worldX % 55 === 25 && worldX > 20) {
+            const width = 3 + ((worldX / 20) % 2) | 0;
+            obstacles.push({ type: 'block', x: worldX, width: width, y: 10 });
+        } else if (worldX % 70 === 35 && worldX > 60) {
+            obstacles.push({ type: 'block', x: worldX, width: 3, y: 12 });
+            obstacles.push({ type: 'block', x: worldX + 4, width: 3, y: 10 });
+            obstacles.push({ type: 'block', x: worldX + 8, width: 3, y: 8 });
         }
 
         // Pipe
-        if (worldX % 45 === 15 && worldX > 50) {
-            obstacles.push({ type: 'pipe', x: worldX, width: 2, height: 3 });
-        }
-
-        // Goomba
-        if (worldX % 50 === 25 && worldX > 50) {
-            enemies.push({ type: 'goomba', x: worldX, y: 7, direction: -1 });
+        if (worldX % 80 === 40 && worldX > 70) {
+            obstacles.push({ type: 'pipe', x: worldX, width: 3, height: 6 });
         }
 
         return obstacles;
+    }
+
+    function spawnEnemies() {
+        const spawnDistace = Math.floor(cameraX + viewportWidth + 20);
+        for (let x = Math.floor(cameraX); x < spawnDistace; x++) {
+            if (x % 65 === 30 && x > 60) {
+                const enemyKey = `goomba-${x}`;
+                if (!spawnedEnemies.has(enemyKey)) {
+                    enemies.push({
+                        type: 'goomba', x: x, y: GROUND_ROW, direction: -1, key: enemyKey
+                    });
+                    spawnedEnemies.add(enemyKey);
+                }
+            }
+        }
     }
 
     function displayObstacles() {
@@ -100,7 +112,7 @@ $(function () {
         const obstacles = displayObstacles();
         const marioX = Math.floor(newPosition);
         const marioRight = marioX + MARIO_WIDTH - 1;
-        const marioBottom = 7 + Math.floor(marioY);
+        const marioBottom = GROUND_ROW + Math.floor(marioY);
         const marioTop = marioBottom - 3;
 
         for (const obs of obstacles) {
@@ -108,7 +120,7 @@ $(function () {
                 const obsLeft = obs.x;
                 const obsRight = obs.x + obs.width - 1;
                 const obsTop = obs.y || 5;
-                const obsBottom = obs.type === 'pipe' ? 7 : (obs.y + 1);
+                const obsBottom = obs.type === 'pipe' ? GROUND_ROW : (obs.y + 1);
 
                 if (marioRight >= obsLeft && marioX <= obsRight && marioBottom >= obsTop && marioTop <= obsBottom) {
                     return true;
@@ -122,7 +134,7 @@ $(function () {
         const obstacles = displayObstacles();
         const marioX = Math.floor(marioPosition);
         const marioRight = marioX + MARIO_WIDTH - 1;
-        const marioBottom = 7 + Math.floor(marioY);
+        const marioBottom = GROUND_ROW + Math.floor(marioY);
 
         let closestPlatform = 0;
 
@@ -133,7 +145,7 @@ $(function () {
                 const platformTop = obs.y;
 
                 if (marioRight >= obsLeft && marioX <= obsRight) {
-                    const platformHeight = 7 - platformTop;
+                    const platformHeight = GROUND_ROW - platformTop;
                     if (marioY >= -platformHeight && platformHeight > closestPlatform) {
                         closestPlatform = platformHeight;
                     }
@@ -147,7 +159,7 @@ $(function () {
         const obstacles = displayObstacles();
         const marioX = Math.floor(marioPosition);
         const marioRight = marioX + MARIO_WIDTH - 1;
-        const marioTop = 7 + Math.floor(marioY) - 3;
+        const marioTop = GROUND_ROW + Math.floor(marioY) - 3;
 
         for (const obs of obstacles) {
             if (obs.type === 'platform' || obs.type === 'block') {
@@ -178,7 +190,7 @@ $(function () {
         const marioScreenX = Math.floor(marioPosition - cameraX);
         const obstacles = displayObstacles();
 
-        for (let row = 0; row < 8; row++) {
+        for (let row = 0; row < gameHeight; row++) {
             let line = '';
 
             for (let col = 0; col < viewportWidth; col++) {
@@ -186,10 +198,10 @@ $(function () {
                 let char = ' ';
                 let rendered = false;
 
-                const marioGroundRow = 7;
-                const marioBottomRow = marioGroundRow + Math.floor(marioY);
+                const marioBottomRow = GROUND_ROW + Math.floor(marioY);
                 const marioTopRow = marioBottomRow - 3;
 
+                // Render Mario
                 if (col >= marioScreenX && col < marioScreenX + MARIO_WIDTH) {
                     if (row >= marioTopRow && row <= marioBottomRow) {
                         const spriteRow = row - marioTopRow;
@@ -202,17 +214,19 @@ $(function () {
                     }
                 }
 
+                // Render Enemies
                 if (!rendered) {
                     for (const enemy of enemies) {
                         const enemyScreenX = Math.floor(enemy.x - cameraX);
                         if (col >= enemyScreenX && col < enemyScreenX + GOOMBA_WIDTH) {
-                            const enemyTopRow = 7 - SPRITE_GOOMBA.length;
+                            const enemyBottomRow = GROUND_ROW;
+                            const enemyTopRow = enemyBottomRow - SPRITE_GOOMBA.length + 1;
 
-                            if (row >= enemyTopRow && row <= 7) {
+                            if (row >= enemyTopRow && row <= enemyBottomRow) {
                                 const spriteRow = row - enemyTopRow;
                                 if (spriteRow >= 0 && spriteRow < SPRITE_GOOMBA.length) {
                                     line += SPRITE_GOOMBA[spriteRow];
-                                    col += GOOMBA_WIDTH -1;
+                                    col += GOOMBA_WIDTH - 1;
                                     rendered = true;
                                     break;
                                 }
@@ -223,39 +237,38 @@ $(function () {
 
                 if (rendered) continue;
 
-                if (!rendered) {
-                    for (const obs of obstacles) {
-                        if (obs.type === 'platform') {
-                            if ((row === obs.y || row === obs.y + 1) && worldX >= obs.x && worldX < obs.x + obs.width) {
-                                char = '[[;#8B4513;]#]';
-                                break;
-                            }
+                // Render Obstacles
+                for (const obs of obstacles) {
+                    if (obs.type === 'platform') {
+                        if ((row === obs.y || row === obs.y + 1) && worldX >= obs.x && worldX < obs.x + obs.width) {
+                            char = '[[;#8B4513;]#]';
+                            break;
                         }
-                        else if (obs.type === 'coin') {
-                            const coinKey = `${obs.x}-${obs.y}`;
-                            if (row === obs.y && worldX === obs.x && !collectedCoins.has(coinKey)) {
-                                char = '[[;yellow;]O]';
-                                break;
-                            }
+                    }
+                    else if (obs.type === 'coin') {
+                        const coinKey = `${obs.x}-${obs.y}`;
+                        if (row === obs.y && worldX === obs.x && !collectedCoins.has(coinKey)) {
+                            char = '[[;yellow;]O]';
+                            break;
                         }
-                        else if (obs.type === 'block') {
-                            if ((row === obs.y || row === obs.y + 1) && worldX >= obs.x && worldX < obs.x + obs.width) {
-                                char = '[[;brown;]=]';
-                                break;
-                            }
+                    }
+                    else if (obs.type === 'block') {
+                        if ((row === obs.y || row === obs.y + 1) && worldX >= obs.x && worldX < obs.x + obs.width) {
+                            char = '[[;brown;]=]';
+                            break;
                         }
-                        else if (obs.type === 'pipe') {
-                            const pipeTop = 7 - obs.height;
-                            if (row >= pipeTop && row <= 7 && worldX >= obs.x && worldX < obs.x + obs.width) {
-                                if (row === pipeTop) {
-                                    char = '[[;green;]╔]';
-                                } else if (row === pipeTop + 1) {
-                                    char = '[[;green;]║]';
-                                } else {
-                                    char = '[[;green;]║]';
-                                }
-                                break;
+                    }
+                    else if (obs.type === 'pipe') {
+                        const pipeTop = GROUND_ROW - obs.height;
+                        if (row >= pipeTop && row <= GROUND_ROW && worldX >= obs.x && worldX < obs.x + obs.width) {
+                            if (row === pipeTop) {
+                                char = '[[;green;]╔]';
+                            } else if (row === pipeTop + 1) {
+                                char = '[[;green;]╠]';
+                            } else {
+                                char = '[[;green;]║]';
                             }
+                            break;
                         }
                     }
                 }
@@ -267,31 +280,37 @@ $(function () {
         t.echo('[[b;green;green]' + createLine('=', gameWidth) + ']');
 
         t.echo('');
-        t.echo(`[[b;yellow;black]Coins: ${coins} | Position: ${Math.floor(marioPosition)}]`);
-        t.echo(`[[b;white;black]Controls: ← → to move | Q to quit]`);
+        t.echo(`[[b;yellow;black]Coins: ${coins} | Position: ${Math.floor(marioPosition)} | Enemies: ${enemies.length}]`);
+        t.echo(`[[b;white;black]Controls: ← → to move | SPACE to jump | Q to quit]`);
     }
 
     function updateEnemies() {
-        enemies = enemies.filter(enemy => enemy.x >= cameraX - GOOMBA_WIDTH);
+        enemies = enemies.filter(enemy => enemy.x >= cameraX - 10);
 
         const marioX = Math.floor(marioPosition);
-        const marioBottom = 7 + Math.floor(marioY);
+        const marioRight = marioX + MARIO_WIDTH - 1;
+        const marioBottom = GROUND_ROW + Math.floor(marioY);
+        const marioTop = marioBottom - 3;
 
-        for (const enemy of enemies) {
-            enemy.x += 0.5 * enemy.direction;
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+
+            enemy.x += 0.3 * enemy.direction;
 
             const enemyLeft = Math.floor(enemy.x);
             const enemyRight = enemyLeft + GOOMBA_WIDTH - 1;
-            const enemyTop = 7 - SPRITE_GOOMBA.length;
+            const enemyBottom = GROUND_ROW;
+            const enemyTop = enemyBottom - SPRITE_GOOMBA.length + 1;
 
-            const horizontalOverlap = marioX <= enemyRight && (marioY + MARIO_WIDTH -1) >= enemyLeft;
-            const verticalOverlap = marioBottom >= enemyTop;
+            const horizontalOverlap = marioRight >= enemyLeft && marioX <= enemyRight;
+            const verticalOverlap = marioBottom >= enemyTop && marioTop <= enemyBottom;
 
             if (horizontalOverlap && verticalOverlap) {
-                if (marioBottom <= enemyTop +1) {
-                    enemies = enemies.filter(e => e !== enemy);
+                if (marioVelocityY > 0 && marioBottom <= enemyTop + 1) {
+                    enemies.splice(i, 1);
                     marioVelocityY = JUMP_STRENGTH * 0.5;
-                    term.echo("[[b;red;]Stomp!]");
+                    coins += 10;
+                    term.echo("[[b;red;]Stomp! +10 coins]");
                 } else {
                     term.echo("[[b;red;]Ouch! You hit a Goomba! Game Over.]");
                     quitGame();
@@ -389,12 +408,16 @@ $(function () {
     function checkCoinCollection() {
         const obstacles = displayObstacles();
         const marioX = Math.floor(marioPosition);
+        const marioBottom = GROUND_ROW + Math.floor(marioY);
+        const marioTop = marioBottom - 3;
         for (const obs of obstacles) {
             if (obs.type === 'coin') {
-                const coinKey = `${obs.x}`;
-                if (!collectedCoins.has(coinKey) && marioX >= obs.x - 1 && marioX <= obs.x + 1) {
-                    coins++;
-                    collectedCoins.add(coinKey);
+                const coinKey = `${obs.x}-${obs.y}`;
+                if (!collectedCoins.has(coinKey)) {
+                    if (marioX >= obs.x - 2 && marioX <= obs.x + 2 && marioBottom >= obs.y && marioTop <= obs.y) {
+                        coins++;
+                        collectedCoins.add(coinKey);
+                    }
                 }
             }
         }
@@ -409,6 +432,7 @@ $(function () {
 
         gameInterval = setInterval(() => {
             if (isGameRunning) {
+                spawnEnemies();
                 updatePhysics();
                 updateEnemies();
                 renderGame(t);
@@ -487,6 +511,8 @@ $(function () {
             coins = 0;
             groundLevel = 0;
             collectedCoins.clear();
+            enemies = [];
+            spawnedEnemies.clear();
             isGameRunning = true;
 
             setTimeout(() => {
@@ -507,8 +533,8 @@ $(function () {
         greetings: false,
         prompt: 'mario> ',
         name: 'mario_game',
-        height: 500,
-        width: 800,
+        height: 600,
+        width: 1000,
         checkArity: false
     });
 });
