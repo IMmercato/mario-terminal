@@ -1,4 +1,84 @@
 $(function () {
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000);
+    document.body.appendChild(renderer.domElement);
+
+    const pcGroup = new THREE.Group();
+
+    const screenGeometry = new THREE.BoxGeometry(8, 6, 0.5);
+    const screenMaterial = new THREE.MeshPhongMaterial({
+        color: 0x333333,
+        specular: 0x555555,
+        shininess: 30
+    });
+    const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+    screen.position.set(0, 3, 0);
+
+    const bezelGeometry = new THREE.BoxGeometry(9, 7, 0.6);
+    const bezelMaterial = new THREE.MeshPhongMaterial({
+        color: 0x888888,
+        specular: 0x999999,
+        shininess: 20
+    });
+    const bezel = new THREE.Mesh(bezelGeometry, bezelMaterial);
+    bezel.position.set(0, 3, -0.1);
+
+    const standGeometry = new THREE.CylinderGeometry(0.5, 1.5, 4, 8);
+    const standMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
+    const stand = new THREE.Mesh(standGeometry, standMaterial);
+    stand.position.set(0, -0.5, 0);
+
+    const keyboardGeometry = new THREE.BoxGeometry(10,0.5,4);
+    const keyboardMaterial = new THREE.MeshPhongMaterial({color: 0x222222});
+    const keyboard = new THREE.Mesh(keyboardGeometry, keyboardMaterial);
+    keyboard.position.set(0, -2.5, 3);
+
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(10, 10, 5);
+    scene.add(directionalLight);
+
+    pcGroup.add(screen);
+    pcGroup.add(bezel);
+    pcGroup.add(stand);
+    pcGroup.add(keyboard);
+    scene.add(pcGroup);
+
+    camera.position.set(0,2,15);
+    camera.lookAt(0,2,0);
+
+    const terminalElement = document.getElementById('terminal');
+    if (terminalElement) {
+        terminalElement.style.position = 'absolute';
+        terminalElement.style.width = '800px';
+        terminalElement.style.height = '600px';
+        terminalElement.style.top = '50%';
+        terminalElement.style.left = '50%';
+        terminalElement.style.transform = 'translate(-50%, -50%)';
+        terminalElement.style.backgroundColor = 'black';
+        terminalElement.style.border = '2px solid #00ff00';
+        terminalElement.style.boxShadow = '0 0 20px #00ff00';
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        pcGroup.rotation.y += 0.001;
+        renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', function () {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(this.window.innerWidth, this.window.innerHeight);
+    })
+
     let term;
     let isGameRunning = false;
     let marioPosition = 0;
@@ -34,6 +114,7 @@ $(function () {
     const MAX_JUMP_HEIGHT = 9;
     const HORIZONTAL_JUMP_DISTANCE = 3;
     const MARIO_WIDTH = 3;
+    const MARIO_SPRITE_WIDTH = 3;
     const GOOMBA_WIDTH = 2;
     const GROUND_ROW = 15;
 
@@ -43,19 +124,18 @@ $(function () {
 
     function generateObstacles(worldX) {
         const obstacles = [];
-        const seed = worldX;
 
         // Floating Platforms
         if (worldX % 50 === 0 && worldX > 30) {
-            const width = 4 + (Math.abs(Math.sin(worldX * 0.1)) * 3) | 0;
-            obstacles.push({ type: 'platform', x: worldX, width: width, y: 4 });
+            const width = 6 + (Math.abs(Math.sin(worldX * 0.1)) * 3) | 0;
+            obstacles.push({ type: 'platform', x: worldX, width: width, y: 8 });
         } else if (worldX % 60 === 20 && worldX > 50) {
             obstacles.push({ type: 'platform', x: worldX, width: 6, y: 10 });
         }
 
         // Coin
         if (worldX % 35 === 5 && worldX > 15) {
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < 3; i++) {
                 obstacles.push({ type: 'coin', x: worldX + i * 3, y: 8 });
             }
         } else if (worldX % 45 === 15 && worldX > 40) {
@@ -79,7 +159,7 @@ $(function () {
 
         // Pipe
         if (worldX % 80 === 40 && worldX > 70) {
-            obstacles.push({ type: 'pipe', x: worldX, width: 3, height: 6 });
+            obstacles.push({ type: 'pipe', x: worldX, width: 3, height: 5 });
         }
 
         return obstacles;
@@ -116,11 +196,21 @@ $(function () {
         const marioTop = marioBottom - 3;
 
         for (const obs of obstacles) {
-            if (obs.type === 'block' || obs.type === 'pipe') {
+            if (obs.type === 'block' || obs.type === 'pipe' || obs.type === 'platform') {
                 const obsLeft = obs.x;
                 const obsRight = obs.x + obs.width - 1;
-                const obsTop = obs.y || 5;
-                const obsBottom = obs.type === 'pipe' ? GROUND_ROW : (obs.y + 1);
+                let obsBottom, obsTop;
+
+                if (obs.type === 'pipe') {
+                    obsTop = GROUND_ROW - obs.height;
+                    obsBottom = GROUND_ROW;
+                } else if (obs.type === 'platform') {
+                    obsTop = obs.y;
+                    obsBottom = obs.y + 1;
+                } else {
+                    obsTop = obs.y;
+                    obsBottom = obs.y + 1;
+                }
 
                 if (marioRight >= obsLeft && marioX <= obsRight && marioBottom >= obsTop && marioTop <= obsBottom) {
                     return true;
@@ -207,7 +297,7 @@ $(function () {
                         const spriteRow = row - marioTopRow;
                         if (spriteRow >= 0 && spriteRow < SPRITE_MARIO.length) {
                             line += SPRITE_MARIO[spriteRow];
-                            col += 2;
+                            col += MARIO_SPRITE_WIDTH - 1;
                             rendered = true;
                             continue;
                         }
@@ -290,7 +380,7 @@ $(function () {
         const marioX = Math.floor(marioPosition);
         const marioRight = marioX + MARIO_WIDTH - 1;
         const marioBottom = GROUND_ROW + Math.floor(marioY);
-        const marioTop = marioBottom - 3;
+        const marioTop = marioBottom - SPRITE_MARIO.length + 1;
 
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
@@ -306,13 +396,19 @@ $(function () {
             const verticalOverlap = marioBottom >= enemyTop && marioTop <= enemyBottom;
 
             if (horizontalOverlap && verticalOverlap) {
-                if (marioVelocityY > 0 && marioBottom <= enemyTop + 1) {
+                const isFalling = marioVelocityY > 0;
+                const isStomping = isFalling && marioBottom <= enemyTop + 1;
+
+                const overlapWidth = Math.min(marioRight, enemyRight) - Math.max(marioX, enemyLeft) + 1;
+                const hasSignificantOverlap = overlapWidth >= 1;
+
+                if (isStomping && hasSignificantOverlap) {
                     enemies.splice(i, 1);
                     marioVelocityY = JUMP_STRENGTH * 0.5;
                     coins += 10;
                     term.echo("[[b;red;]Stomp! +10 coins]");
                 } else {
-                    term.echo("[[b;red;]Ouch! You hit a Goomba! Game Over.]");
+                    term.echo("[[b;red]Ouch! You hit a Goomba! Game Over.]");
                     quitGame();
                     return;
                 }
@@ -533,8 +629,8 @@ $(function () {
         greetings: false,
         prompt: 'mario> ',
         name: 'mario_game',
-        height: 600,
-        width: 1000,
+        height: 500,
+        width: 800,
         checkArity: false
     });
 });
