@@ -4,54 +4,173 @@ $(function () {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
 
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0x000000);
+    renderer.setClearColor(0x222222);
     document.body.appendChild(renderer.domElement);
 
     const pcGroup = new THREE.Group();
 
     const screenGeometry = new THREE.BoxGeometry(8, 6, 0.5);
     const screenMaterial = new THREE.MeshPhongMaterial({
-        color: 0x333333,
-        specular: 0x555555,
-        shininess: 30
+        color: 0x000000,
+        specular: 0x333333,
+        shininess: 10,
+        emissive: 0x111111
     });
     const screen = new THREE.Mesh(screenGeometry, screenMaterial);
     screen.position.set(0, 3, 0);
 
-    const bezelGeometry = new THREE.BoxGeometry(9, 7, 0.6);
+    const bezelGeometry = new THREE.BoxGeometry(9.5, 7.5, 1.0);
     const bezelMaterial = new THREE.MeshPhongMaterial({
-        color: 0x888888,
-        specular: 0x999999,
-        shininess: 20
+        color: 0xcccccc,
+        specular: 0xAAAAAA,
+        shininess: 30
     });
     const bezel = new THREE.Mesh(bezelGeometry, bezelMaterial);
-    bezel.position.set(0, 3, -0.1);
+    bezel.position.set(0, 3, -0.15);
 
-    const standGeometry = new THREE.CylinderGeometry(0.5, 1.5, 4, 8);
-    const standMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
-    const stand = new THREE.Mesh(standGeometry, standMaterial);
-    stand.position.set(0, -0.5, 0);
+    const standBaseGeometry = new THREE.CylinderGeometry(2.5, 3, 0.8, 8);
+    const standBaseMaterial = new THREE.MeshPhongMaterial({ color: 0x777777 });
+    const standBase = new THREE.Mesh(standBaseGeometry, standBaseMaterial);
+    standBase.position.set(0, 0.4, 0);
 
-    const keyboardGeometry = new THREE.BoxGeometry(10,0.5,4);
-    const keyboardMaterial = new THREE.MeshPhongMaterial({color: 0x222222});
-    const keyboard = new THREE.Mesh(keyboardGeometry, keyboardMaterial);
-    keyboard.position.set(0, -2.5, 3);
+    const standNeckGeometry = new THREE.CylinderGeometry(0.8, 1.2, 2.5, 8);
+    const standNeckMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
+    const standNeck = new THREE.Mesh(standNeckGeometry, standNeckMaterial);
+    standNeck.position.set(0, 0.4, 0);
 
-    const ambientLight = new THREE.AmbientLight(0x404040);
+    const keyboardBaseGeometry = new THREE.BoxGeometry(12, 0.6, 5);
+    const keyboardBaseMaterial = new THREE.MeshPhongMaterial({
+        color: 0x333333,
+        specular: 0x444444,
+        shininess: 20,
+    });
+    const keyboardBase = new THREE.Mesh(keyboardBaseGeometry, keyboardBaseMaterial);
+    keyboardBase.position.set(0, -2.8, 4);
+
+    const keyGeometry = new THREE.BoxGeometry(0.8, 0.2, 0.8);
+    const keyMaterial = new THREE.MeshPhongMaterial({
+        color: 0x111111,
+        specular: 0x222222,
+        shininess: 50
+    })
+
+    for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 12; col++) {
+            const key = new THREE.Mesh(keyGeometry, keyMaterial);
+            key.position.set(
+                -5.5 + col * 1.0,
+                -2.6,
+                3.5 - row * 1.0
+            );
+            pcGroup.add(key);
+        }
+    }
+
+    const spaceBarGeometry = new THREE.BoxGeometry(6, 0.25, 1.2);
+    const spaceBar = new THREE.Mesh(spaceBarGeometry, keyMaterial);
+    spaceBar.position.set(0, -2.6, 6);
+    pcGroup.add(spaceBar);
+
+    const mouseBaseGeometry = new THREE.BoxGeometry(1.5, 0.8, 2.5);
+    const mouseBaseMaterial = new THREE.MeshPhongMaterial({
+        color: 0x444444,
+        specular: 0x555555,
+        shininess: 30
+    });
+    const mouseBase = new THREE.Mesh(mouseBaseGeometry, mouseBaseMaterial);
+    mouseBase.position.set(8, -2.2, 4.8);
+    mouseBase.rotation.y = -0.3;
+
+    const mouseBallGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+    const mouseBallMaterial = new THREE.MeshPhongMaterial({
+        color: 0x000000,
+        specular: 0x333333,
+        shininess: 100
+    });
+    const mouseBall = new THREE.Mesh(mouseBallGeometry, mouseBallMaterial);
+    mouseBall.position.set(8, -2.2, 4.8);
+    mouseBall.rotation.y = -0.3;
+
+    const cpuGeometry = new THREE.BoxGeometry(3, 8, 6);
+    const cpuMaterial = new THREE.MeshPhongMaterial({
+        color: 0xD3D3C9,
+        specular: 0xBBBBBB,
+        shininess: 10
+    });
+    const cpu = new THREE.Mesh(cpuGeometry, cpuMaterial);
+    cpu.position.set(-10, 0, 0);
+
+    const floppyGeometry = new THREE.BoxGeometry(2.5, 0.8, 0.2);
+    const floppyMaterial = new THREE.MeshPhongMaterial({ color: 0x222222 });
+    const floppy = new THREE.Mesh(floppyGeometry, floppyMaterial);
+    floppy.position.set(-10, -2, 3.1);
+    pcGroup.add(floppy);
+
+    const powerButtonGeomerty = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
+    const powerButtonMaterial = new THREE.MeshPhongMaterial({
+        color: 0xFF0000,
+        emissive: 0x220000
+    });
+    const powerButton = new THREE.Mesh(powerButtonGeomerty, powerButtonMaterial);
+    powerButton.position.set(-10, 2, 3.1);
+    pcGroup.add(powerButton);
+
+    const cableGeometry = new THREE.CylinderGeometry(0.1, 0.1, 10, 8);
+    const cableMaterial = new THREE.MeshPhongMaterial({ color: 0x111111 });
+
+    const monitorCable = new THREE.Mesh(cableGeometry, cableMaterial);
+    monitorCable.position.set(0, -1, 0);
+    monitorCable.rotation.x = Math.PI / 2;
+    monitorCable.rotation.z = -0.5;
+    pcGroup.add(monitorCable);
+
+    const keyboardCable = new THREE.Mesh(cableGeometry, cableMaterial);
+    keyboardCable.position.set(0, -2.8, 1.5);
+    keyboardCable.rotation.x = Math.PI / 2;
+    keyboardCable.rotation.z = 0.3;
+    pcGroup.add(keyboardCable);
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 1.2);
     scene.add(ambientLight);
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(10, 10, 5);
+    directionalLight.position.set(15, 20, 10);
     scene.add(directionalLight);
+
+    const backLight = new THREE.DirectionalLight(0x444444, 0.5);
+    backLight.position.set(-10, 5, -10);
+    scene.add(backLight);
 
     pcGroup.add(screen);
     pcGroup.add(bezel);
-    pcGroup.add(stand);
-    pcGroup.add(keyboard);
+    pcGroup.add(standBase);
+    pcGroup.add(standNeck);
+    pcGroup.add(keyboardBase);
+    pcGroup.add(mouseBase);
+    pcGroup.add(mouseBall);
+    pcGroup.add(cpu);
     scene.add(pcGroup);
 
-    camera.position.set(0,2,15);
-    camera.lookAt(0,2,0);
+    camera.position.set(20, 10, 25);
+    camera.lookAt(0, 0, 0);
+
+    let rotationSpeed = 0.001;
+    let mouseOver = false;
+
+    renderer.domElement.addEventListener('mouseenter', () => mouseOver = true);
+    renderer.domElement.addEventListener('mouseleave', () => mouseOver = false);
+
+    renderer.domElement.addEventListener('mouseover', () => {
+        if (terminalElement) {
+            terminalElement.style.opacity = '0.7';
+        }
+    });
+
+    renderer.domElement.addEventListener('mouseout', () => {
+        if (terminalElement) {
+            terminalElement.style.opacity = '1';
+        }
+    });
 
     const terminalElement = document.getElementById('terminal');
     if (terminalElement) {
@@ -61,14 +180,21 @@ $(function () {
         terminalElement.style.top = '50%';
         terminalElement.style.left = '50%';
         terminalElement.style.transform = 'translate(-50%, -50%)';
-        terminalElement.style.backgroundColor = 'black';
-        terminalElement.style.border = '2px solid #00ff00';
-        terminalElement.style.boxShadow = '0 0 20px #00ff00';
+        terminalElement.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+        terminalElement.style.border = '3px solid #00ff00';
+        terminalElement.style.boxShadow = '0 0 30px #00ff00, inset 0 0 20px #00ff00';
+        terminalElement.style.borderRadius = '5px';
+        terminalElement.style.zIndex = '100';
+        terminalElement.style.transition = 'opacity 0.3s';
     }
 
     function animate() {
         requestAnimationFrame(animate);
-        pcGroup.rotation.y += 0.001;
+        if (!mouseOver) {
+            pcGroup.rotation.y += rotationSpeed;
+        }
+
+        pcGroup.rotation.y += Math.sin(Date.now() * 0.001) * 0.05;
         renderer.render(scene, camera);
     }
     animate();
