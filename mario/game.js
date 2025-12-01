@@ -759,4 +759,5 @@ $(function () {
         width: 800,
         checkArity: false
     });
+    term.exec('start');
 });
