@@ -1,14 +1,15 @@
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Scanner;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.HashSet;
+import java.util.Set;
 
 public class game {
-    static int mario_position = 0;
+    static int mario_position = 5;
     static int marioY = 0;
     static int coins = 0;
     static int cameraX = 0;
     static boolean isRunning = true;
+    static Set<Integer> collectedCoins = new HashSet<>();
 
     final static String MARIO_SPRITE[] = {
             ConsoleColors.RED_BACKGROUND + " M " + ConsoleColors.RESET,
@@ -63,7 +64,7 @@ public class game {
                 // Game ended
             }
         });
-        inpuThread.setDaemon(true);     // Safe accesss shared resources
+        inpuThread.setDaemon(true); // Safe accesss shared resources
         inpuThread.start();
 
         startGameLoop();
@@ -89,41 +90,53 @@ public class game {
         }
     }
 
-    private static void generateObstacles() {
-        int blocks = 10;
-        int platforms = 10;
+    static class Obstacle {
+        String type;
+        int x, y, width, height;
 
-        for (int x = 0; x < GAME_WIDTH; x++) {
-            screen[GROUND_ROW][x] = ConsoleColors.RED_BACKGROUND_BRIGHT + " ";
-        }
-
-        // BLOCK
-        for (int y = 0; y < blocks; y++) {
-            int length = ThreadLocalRandom.current().nextInt(3, 6);
-            int positionx = ThreadLocalRandom.current().nextInt(GAME_WIDTH - length);
-            int positiony = GROUND_ROW - ThreadLocalRandom.current().nextInt(4, 6);
-            for (int x = 0; x < length; x++) {
-                if (screen[positiony][positionx + x].equals(SKY)) {
-                    screen[positiony][positionx] = BLOCK;
-                }
-            }
-        }
-
-        // PLATFORM
-        for (int y = 0; y < platforms; y++) {
-            int height = ThreadLocalRandom.current().nextInt(2, 4);
-            int positionx = ThreadLocalRandom.current().nextInt(GAME_WIDTH);
-            int positiony = ThreadLocalRandom.current().nextInt(GAME_HEIGHT - height);
-            for (int x = 0; x < height; x++) {
-                if (screen[positiony + x][positionx].equals(SKY)) {
-                    screen[positiony + x][positionx] = PLATFORM;
-                }
-            }
+        Obstacle(String type, int x, int y, int width, int height) {
+            this.type = type;
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
         }
     }
 
-    private static void generateCoins() {
-        screen[4][10] = COIN;
+    private static ArrayList<Obstacle> generateObstacles(int worldX) {
+        ArrayList<Obstacle> obs = new ArrayList<>();
+
+        // Floating Platforms
+        if (worldX % 50 == 0 && worldX > 30) {
+            int width = 6 + (int) (Math.abs(Math.sin(worldX * 0.1)) * 3);
+            obs.add(new Obstacle("platform", worldX, 8, width, 1));
+        }
+
+        // Coins
+        if (worldX % 35 == 5 && worldX > 15) {
+            for (int i = 0; i < 3; i++) {
+                obs.add(new Obstacle("coin", worldX + i * 3, 8, 1, 1));
+            }
+        } else if (worldX % 35 == 15 && worldX > 40) {
+            obs.add(new Obstacle("coin", worldX, 6, 1, 1));
+            obs.add(new Obstacle("coin", worldX + 3, 8, 1, 1));
+        }
+
+        // Blocks
+        if (worldX % 55 == 25 && worldX > 20) {
+            int width = 3 + ((worldX / 20) % 2);
+            obs.add(new Obstacle("block", worldX, 10, width, 1));
+        }
+
+        return obs;
+    }
+
+    private static ArrayList<Obstacle> displayObstacles() {
+        ArrayList<Obstacle> result = new ArrayList<>();
+        for (int x = cameraX; x < cameraX + GAME_WIDTH + 10; x++) {
+            result.addAll(generateObstacles(x));
+        }
+        return result;
     }
 
     class Enemy {
@@ -138,49 +151,101 @@ public class game {
 
     ArrayList<Enemy> enemies = new ArrayList<>();
 
-    private static void placeMario() {
-        int marioBottomRow = GROUND_ROW;
-        int marioTopRow = marioBottomRow - (MARIO_HEIGHT - 1);
-
-        for (int row = marioTopRow; row <= marioBottomRow; row++) {
-            int spriteRow = row - marioTopRow;
-            for (int col = 0; col < MARIO_WIDTH; col++) {
-                screen[row][mario_position + col] = MARIO_SPRITE[spriteRow];
-                col += MARIO_WIDTH - 1;
-            }
-        }
-    }
-
     private static void renderGame() {
+        // Move cursor to top-left and clear from cursor
+        System.out.print("\u001B[h");
+
+        // Drow SKY
         for (int i = 0; i < GAME_HEIGHT; i++) {
             for (int j = 0; j < GAME_WIDTH; j++) {
                 screen[i][j] = SKY;
             }
         }
 
-        generateObstacles();
-        generateCoins();
-        placeMario();
+        // Drow GROUND
+        for (int x = 0; x < GAME_WIDTH; x++) {
+            screen[GROUND_ROW][x] = GROUND;
+        }
+
+        // Draw obstacles
+        ArrayList<Obstacle> obs = displayObstacles();
+        for (Obstacle o : obs) {
+            int screenX = o.x - cameraX;
+            if (screenX >= 0 && screenX < GAME_WIDTH) {
+                if (o.type.equals("platform")) {
+                    for (int w = 0; w < o.width && screenX + w < GAME_WIDTH; w++) {
+                        if (o.y < GAME_HEIGHT) {
+                            screen[o.y][screenX + w] = PLATFORM;
+                        }
+                    }
+                } else if (o.type.equals("coin")) {
+                    int coinKey = o.x *1000 +o.y;
+                    if (!collectedCoins.contains(coinKey) && o.y < GAME_HEIGHT) {
+                        screen[o.y][screenX] = COIN;
+                    }
+                } else if (o.type.equals("block")) {
+                    for (int w =0 ; w < o.width && screenX + w < GAME_WIDTH; w++) {
+                        if (o.y < GAME_WIDTH) {
+                            screen[o.y][screenX + w] = BLOCK;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Draw Mario
+        int marioScreenX = mario_position - cameraX;
+        int marioBottomRow = GROUND_ROW;
+        int marioTopRow = marioBottomRow - (MARIO_HEIGHT - 1);
+
+        if (marioScreenX >= 0 && marioScreenX + MARIO_WIDTH <= GAME_WIDTH) {
+            for (int row = 0; row < MARIO_HEIGHT; row++) {
+                int spriteRow = row + marioTopRow;
+                if (spriteRow >= 0 && spriteRow < GAME_HEIGHT) {
+                    screen[spriteRow][marioScreenX] = MARIO_SPRITE[row];
+                }
+            }
+        }
+
+        StringBuilder output = new StringBuilder();
+
+        output.append(ConsoleColors.CYAN).append("=".repeat(GAME_WIDTH)).append(ConsoleColors.RESET);
+        output.append(ConsoleColors.WHITE + "SUPER MARIO TERMINAL GAME" + ConsoleColors.RESET);
+        output.append(ConsoleColors.CYAN).append("=".repeat(GAME_WIDTH)).append(ConsoleColors.RESET);
 
         for (int y = 0; y < GAME_HEIGHT; y++) {
             for (int x = 0; x < GAME_WIDTH; x++) {
-                System.out.print(screen[y][x]);
+                output.append(screen[y][x]);
             }
-            System.out.println(ConsoleColors.RESET);
+            output.append(ConsoleColors.RESET);
         }
+
+        System.out.print(output.toString());
+        System.out.flush();
     }
 
     private static void startGameLoop() {
-        Scanner input = new Scanner(System.in);
-        while (true) {
-            renderGame();
+        // Clear screen
+        System.out.print("\u001B[2J\u001B[H");
+        System.out.flush();
+
+        long lastTime = System.currentTimeMillis();
+        int frameDelay = 100; // 100ms = 10 FPS
+
+        while (isRunning) {
+            long currentTime = System.currentTimeMillis();
+
+            if (currentTime - lastTime >= frameDelay) {
+                renderGame();
+                lastTime = currentTime;
+            }
+
             try {
-                Thread.sleep(100);
+                Thread.sleep(10); // Prevent CPU spinning
             } catch (Exception e) {
                 break;
             }
         }
-        input.close();
     }
 }
 
