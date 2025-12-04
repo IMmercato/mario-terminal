@@ -1,41 +1,123 @@
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Scanner;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class game {
+    static int mario_position = 0;
+    static int marioY = 0;
+    static int coins = 0;
+    static int cameraX = 0;
+    static boolean isRunning = true;
+
     final static String MARIO_SPRITE[] = {
             ConsoleColors.RED_BACKGROUND + " M " + ConsoleColors.RESET,
             (ConsoleColors.YELLOW + ConsoleColors.WHITE_BACKGROUND) + "( )" + ConsoleColors.RESET,
             ConsoleColors.BLUE_BACKGROUND + "H H" + ConsoleColors.RESET,
             ConsoleColors.BLUE_BACKGROUND + "| |" + ConsoleColors.RESET
     };
-    final static String SKY = ConsoleColors.BLUE_BACKGROUND_BRIGHT + " ";
-    final static String BLOCK = ConsoleColors.RED_BOLD + "#";
-    final static String PLATFORM = ConsoleColors.RED_BOLD_BRIGHT + "=";
-    final static String COIN = ConsoleColors.YELLOW + "o";
+    final static String SKY = ConsoleColors.BLUE_BACKGROUND_BRIGHT + " " + ConsoleColors.RESET;
+    final static String BLOCK = ConsoleColors.RED_BOLD + "#" + ConsoleColors.RESET;
+    final static String PLATFORM = ConsoleColors.RED_BOLD_BRIGHT + "=" + ConsoleColors.RESET;
+    final static String GROUND = ConsoleColors.RED_BACKGROUND_BRIGHT + ";" + ConsoleColors.RESET;
+    final static String COIN = ConsoleColors.YELLOW + "o" + ConsoleColors.RESET;
 
-    final static int GAME_HEIGHT = 8;
-    final static int GAME_WIDTH = 50;
+    final static int GAME_HEIGHT = 16;
+    final static int GAME_WIDTH = 80;
     final static int MARIO_WIDTH = 3;
     final static int MARIO_HEIGHT = MARIO_SPRITE.length;
-    final static int GROUND_ROW = 7;
-    static int mario_position = 0;
+    final static int GROUND_ROW = 15;
+
+    final static double GRAVITY = 0.5;
+    final static double JUMP_STRENGTH = -4.0;
+    final static int MAX_JUMP_HEIGHT = 9;
 
     static String[][] screen = new String[GAME_HEIGHT][GAME_WIDTH];
 
+    static volatile boolean keyLeft = false;
+    static volatile boolean keyRight = false;
+    static volatile boolean keySpace = false;
+
     public static void main(String[] args) {
+        System.out.println(ConsoleColors.GREEN_BOLD + "=== SUPER MARIO TERMINAL ===");
+        System.out.println(ConsoleColors.WHITE + "Controls: A(left), D(right), W(jump), Q(quit)");
+        System.out.println("Press Enter to start game...");
+
+        try {
+            System.in.read();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // Start input thread
+        Thread inpuThread = new Thread(() -> {
+            try {
+                while (isRunning) {
+                    if (System.in.available() > 0) {
+                        int c = System.in.read();
+                        handleKeyPress((char) c);
+                    }
+                    Thread.sleep(5);
+                }
+            } catch (Exception e) {
+                // Game ended
+            }
+        });
+        inpuThread.setDaemon(true);     // Safe accesss shared resources
+        inpuThread.start();
+
         startGameLoop();
+
+        System.out.println(ConsoleColors.YELLOW + "Game Over! Final score: " + coins + "coins" + ConsoleColors.RESET);
+    }
+
+    private static void handleKeyPress(char key) {
+        switch (Character.toLowerCase(key)) {
+            case 'a':
+                keyLeft = true;
+                break;
+            case 'd':
+                keyRight = true;
+                break;
+            case 'w':
+            case ' ':
+                keySpace = true;
+                break;
+            case 'q':
+                isRunning = false;
+                break;
+        }
     }
 
     private static void generateObstacles() {
-        int obstacles = 20;
+        int blocks = 10;
+        int platforms = 10;
 
-        for (int i = 0; i < obstacles; i++) {
+        for (int x = 0; x < GAME_WIDTH; x++) {
+            screen[GROUND_ROW][x] = ConsoleColors.RED_BACKGROUND_BRIGHT + " ";
+        }
+
+        // BLOCK
+        for (int y = 0; y < blocks; y++) {
+            int length = ThreadLocalRandom.current().nextInt(3, 6);
+            int positionx = ThreadLocalRandom.current().nextInt(GAME_WIDTH - length);
+            int positiony = GROUND_ROW - ThreadLocalRandom.current().nextInt(4, 6);
+            for (int x = 0; x < length; x++) {
+                if (screen[positiony][positionx + x].equals(SKY)) {
+                    screen[positiony][positionx] = BLOCK;
+                }
+            }
+        }
+
+        // PLATFORM
+        for (int y = 0; y < platforms; y++) {
+            int height = ThreadLocalRandom.current().nextInt(2, 4);
             int positionx = ThreadLocalRandom.current().nextInt(GAME_WIDTH);
-            int positiony = ThreadLocalRandom.current().nextInt(GAME_HEIGHT);
-
-            if (ThreadLocalRandom.current().nextBoolean()) {
-                screen[positiony][positionx] = BLOCK;
-            } else {
-                screen[positiony][positionx] = PLATFORM;
+            int positiony = ThreadLocalRandom.current().nextInt(GAME_HEIGHT - height);
+            for (int x = 0; x < height; x++) {
+                if (screen[positiony + x][positionx].equals(SKY)) {
+                    screen[positiony + x][positionx] = PLATFORM;
+                }
             }
         }
     }
@@ -43,6 +125,18 @@ public class game {
     private static void generateCoins() {
         screen[4][10] = COIN;
     }
+
+    class Enemy {
+        int x, y, direction;
+
+        Enemy(int x, int y, int direction) {
+            this.x = x;
+            this.y = y;
+            this.direction = direction;
+        }
+    }
+
+    ArrayList<Enemy> enemies = new ArrayList<>();
 
     private static void placeMario() {
         int marioBottomRow = GROUND_ROW;
@@ -77,7 +171,16 @@ public class game {
     }
 
     private static void startGameLoop() {
-        renderGame();
+        Scanner input = new Scanner(System.in);
+        while (true) {
+            renderGame();
+            try {
+                Thread.sleep(100);
+            } catch (Exception e) {
+                break;
+            }
+        }
+        input.close();
     }
 }
 
