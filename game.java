@@ -71,7 +71,7 @@ public class game {
 
         startGameLoop();
 
-        System.out.println(ConsoleColors.YELLOW + "Game Over! Final score: " + coins + "coins" + ConsoleColors.RESET);
+        System.out.println(ConsoleColors.YELLOW + "Game Over! Final score: " + coins + " coins" + ConsoleColors.RESET);
     }
 
     private static void handleKeyPress(char key) {
@@ -145,11 +145,11 @@ public class game {
 
     private static void updatePhysics() {
         if (keyLeft) {
-            mario_position = Math.max(0, mario_position -1);
+            mario_position = Math.max(0, mario_position - 1);
             keyLeft = false;
         }
         if (keyRight) {
-            mario_position +=1;
+            mario_position += 1;
             keyRight = false;
         }
 
@@ -161,7 +161,7 @@ public class game {
 
         if (marioY < 0 || marioVelocityY != 0) {
             marioVelocityY += GRAVITY;
-            marioY += (int)marioVelocityY;
+            marioY += (int) marioVelocityY;
 
             if (marioY < -MAX_JUMP_HEIGHT) {
                 marioY = -MAX_JUMP_HEIGHT;
@@ -182,14 +182,14 @@ public class game {
     private static void checkCoinCollection() {
         ArrayList<Obstacle> obs = displayObstacles();
         int marioX = mario_position;
-        int marioBottom = GROUND_ROW - marioY;
+        int marioBottom = GROUND_ROW + marioY;
         int marioTop = marioBottom - MARIO_HEIGHT + 1;
 
-        for (Obstacle o: obs) {
-            if(o.type.equals("coin")) {
+        for (Obstacle o : obs) {
+            if (o.type.equals("coin")) {
                 int coinKey = o.x * 1000 + o.y;
                 if (!collectedCoins.contains(coinKey)) {
-                    if (marioX >= o.x - 2 && marioX <= o.x +2 && marioBottom >= o.y && marioTop <= o.y) {
+                    if (marioX >= o.x - 2 && marioX <= o.x + 2 && marioBottom >= o.y && marioTop <= o.y) {
                         coins++;
                         collectedCoins.add(coinKey);
                     }
@@ -212,7 +212,7 @@ public class game {
 
     private static void renderGame() {
         // Move cursor to top-left and clear from cursor
-        System.out.print("\u001B[h");
+        System.out.print("\u001B[H");
 
         // Draw SKY
         for (int i = 0; i < GAME_HEIGHT; i++) {
@@ -244,7 +244,7 @@ public class game {
                     }
                 } else if (o.type.equals("block")) {
                     for (int w = 0; w < o.width && screenX + w < GAME_WIDTH; w++) {
-                        if (o.y < GAME_WIDTH) {
+                        if (o.y < GAME_HEIGHT) {
                             screen[o.y][screenX + w] = BLOCK;
                         }
                     }
@@ -254,8 +254,8 @@ public class game {
 
         // Draw Mario
         int marioScreenX = mario_position - cameraX;
-        int marioBottomRow = GROUND_ROW;
-        int marioTopRow = marioBottomRow - (MARIO_HEIGHT - 1);
+        int marioBottomRow = GROUND_ROW + marioY;
+        int marioTopRow = marioBottomRow - MARIO_HEIGHT + 1;
 
         if (marioScreenX >= 0 && marioScreenX + MARIO_WIDTH <= GAME_WIDTH) {
             for (int row = 0; row < MARIO_HEIGHT; row++) {
@@ -276,9 +276,10 @@ public class game {
             for (int x = 0; x < GAME_WIDTH; x++) {
                 output.append(screen[y][x]);
             }
-            output.append(ConsoleColors.RESET);
+            output.append("\n");
         }
-        output.append(String.format(ConsoleColors.YELLOW + "Coins: %d | Position: %d" + ConsoleColors.RESET, coins, mario_position));
+        output.append(String.format(ConsoleColors.YELLOW + "Coins: %d | Position: %d" + ConsoleColors.RESET, coins,
+                mario_position));
 
         System.out.print(output.toString());
         System.out.flush();
