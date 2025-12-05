@@ -6,9 +6,11 @@ import java.util.Set;
 public class game {
     static int mario_position = 5;
     static int marioY = 0;
+    static double marioVelocityY = 0;
     static int coins = 0;
     static int cameraX = 0;
     static boolean isRunning = true;
+    static boolean isJumping = false;
     static Set<Integer> collectedCoins = new HashSet<>();
 
     final static String MARIO_SPRITE[] = {
@@ -51,7 +53,7 @@ public class game {
         }
 
         // Start input thread
-        Thread inpuThread = new Thread(() -> {
+        Thread inputThread = new Thread(() -> {
             try {
                 while (isRunning) {
                     if (System.in.available() > 0) {
@@ -64,8 +66,8 @@ public class game {
                 // Game ended
             }
         });
-        inpuThread.setDaemon(true); // Safe accesss shared resources
-        inpuThread.start();
+        inputThread.setDaemon(true); // Safe accesss shared resources
+        inputThread.start();
 
         startGameLoop();
 
@@ -110,6 +112,8 @@ public class game {
         if (worldX % 50 == 0 && worldX > 30) {
             int width = 6 + (int) (Math.abs(Math.sin(worldX * 0.1)) * 3);
             obs.add(new Obstacle("platform", worldX, 8, width, 1));
+        } else if (worldX % 60 == 20 && worldX > 50) {
+            obs.add(new Obstacle("platform", worldX, 10, 6, 1));
         }
 
         // Coins
@@ -139,6 +143,61 @@ public class game {
         return result;
     }
 
+    private static void updatePhysics() {
+        if (keyLeft) {
+            mario_position = Math.max(0, mario_position -1);
+            keyLeft = false;
+        }
+        if (keyRight) {
+            mario_position +=1;
+            keyRight = false;
+        }
+
+        if (keySpace && !isJumping && marioY >= 0) {
+            marioVelocityY = JUMP_STRENGTH;
+            isJumping = true;
+            keySpace = false;
+        }
+
+        if (marioY < 0 || marioVelocityY != 0) {
+            marioVelocityY += GRAVITY;
+            marioY += (int)marioVelocityY;
+
+            if (marioY < -MAX_JUMP_HEIGHT) {
+                marioY = -MAX_JUMP_HEIGHT;
+                marioVelocityY = 0;
+            }
+
+            if (marioY >= 0) {
+                marioY = 0;
+                marioVelocityY = 0;
+                isJumping = false;
+            }
+        }
+        cameraX = Math.max(0, mario_position - 15);
+
+        checkCoinCollection();
+    }
+
+    private static void checkCoinCollection() {
+        ArrayList<Obstacle> obs = displayObstacles();
+        int marioX = mario_position;
+        int marioBottom = GROUND_ROW - marioY;
+        int marioTop = marioBottom - MARIO_HEIGHT + 1;
+
+        for (Obstacle o: obs) {
+            if(o.type.equals("coin")) {
+                int coinKey = o.x * 1000 + o.y;
+                if (!collectedCoins.contains(coinKey)) {
+                    if (marioX >= o.x - 2 && marioX <= o.x +2 && marioBottom >= o.y && marioTop <= o.y) {
+                        coins++;
+                        collectedCoins.add(coinKey);
+                    }
+                }
+            }
+        }
+    }
+
     class Enemy {
         int x, y, direction;
 
@@ -155,14 +214,14 @@ public class game {
         // Move cursor to top-left and clear from cursor
         System.out.print("\u001B[h");
 
-        // Drow SKY
+        // Draw SKY
         for (int i = 0; i < GAME_HEIGHT; i++) {
             for (int j = 0; j < GAME_WIDTH; j++) {
                 screen[i][j] = SKY;
             }
         }
 
-        // Drow GROUND
+        // Draw GROUND
         for (int x = 0; x < GAME_WIDTH; x++) {
             screen[GROUND_ROW][x] = GROUND;
         }
@@ -179,12 +238,12 @@ public class game {
                         }
                     }
                 } else if (o.type.equals("coin")) {
-                    int coinKey = o.x *1000 +o.y;
+                    int coinKey = o.x * 1000 + o.y;
                     if (!collectedCoins.contains(coinKey) && o.y < GAME_HEIGHT) {
                         screen[o.y][screenX] = COIN;
                     }
                 } else if (o.type.equals("block")) {
-                    for (int w =0 ; w < o.width && screenX + w < GAME_WIDTH; w++) {
+                    for (int w = 0; w < o.width && screenX + w < GAME_WIDTH; w++) {
                         if (o.y < GAME_WIDTH) {
                             screen[o.y][screenX + w] = BLOCK;
                         }
@@ -219,6 +278,7 @@ public class game {
             }
             output.append(ConsoleColors.RESET);
         }
+        output.append(String.format(ConsoleColors.YELLOW + "Coins: %d | Position: %d" + ConsoleColors.RESET, coins, mario_position));
 
         System.out.print(output.toString());
         System.out.flush();
@@ -236,13 +296,14 @@ public class game {
             long currentTime = System.currentTimeMillis();
 
             if (currentTime - lastTime >= frameDelay) {
+                updatePhysics();
                 renderGame();
                 lastTime = currentTime;
             }
 
             try {
                 Thread.sleep(10); // Prevent CPU spinning
-            } catch (Exception e) {
+            } catch (InterruptedException e) {
                 break;
             }
         }
